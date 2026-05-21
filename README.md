@@ -52,9 +52,15 @@ Claude Code on the web の **Scheduled Trigger** を使うと、PC を起動し�
 
 1. https://claude.ai/code でこのリポジトリを source として登録
 2. **Triggers** → **Add scheduled trigger**
-3. Cron 設定: `0 6 * * *`（毎朝 06:00 JST）など。タイムゾーンを Asia/Tokyo に
+3. Cron 設定: **`30 6 * * *`（毎朝 06:30 JST）を推奨**。タイムゾーンを Asia/Tokyo に
 4. 実行プロンプト: `/morning-digest`
 5. 保存
+
+> **なぜ 06:30 JST か**: 予定本体は 7:00–7:30 に固定。データの鮮度を高めるため
+> 収集はその直前に走らせます。実行には通常 1〜3 分かかり、Scheduled Trigger
+> 起動には数分の遅延が乗ることもあるため、**7:00 まで 30 分弱の余裕**を
+> 確保する `30 6 * * *` がバランス良好です。もっと攻めるなら `40 6 * * *`、
+> 余裕を取るなら `15 6 * * *` などに調整してください。
 
 詳細仕様: https://code.claude.com/docs/en/claude-code-on-the-web
 

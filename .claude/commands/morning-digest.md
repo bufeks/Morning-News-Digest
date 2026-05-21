@@ -11,6 +11,10 @@ allowed-tools: WebSearch, WebFetch
 
 ## 全体の流れ
 
+このコマンドは **当日 7:00 JST の直前**（典型的には 06:30 JST 頃の Scheduled
+Trigger）に起動される想定です。ニュース収集はその場で実行し、**鮮度が最大の
+状態で 7:00–7:30 の予定を作成**します。
+
 1. `WebSearch`（必要に応じて `WebFetch`）で当日（Asia/Tokyo）の主要ニュースを 5 分野について収集・要約
 2. Google Calendar の **create_event 系 MCP ツール**（`mcp__*__create_event`）で、当日 7:00–7:30 JST の予定を作成
 3. 完了したら、作成した予定のリンクと簡単な内容サマリを 1 メッセージで報告
