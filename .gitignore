@@ -1,7 +1,3 @@
-client_secret.json
-digest.json
-claude-output.json
-token.json
-__pycache__/
-.venv/
 .DS_Store
+.venv/
+__pycache__/
