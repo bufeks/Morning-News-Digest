@@ -1,9 +1,7 @@
 # Morning News Digest
 
 毎朝、当日の主要ニュースを Claude Code（WebSearch）で自動収集・日本語要約し、
-Google カレンダーに **7:00–7:30 JST の予定** として登録する GitHub Actions 連携リポジトリです。
-
-PC を起動しておく必要はなく、すべて GitHub のクラウド上で動作します。
+Google カレンダーに **7:00–7:30 JST の予定** として登録するための **Claude Code スラッシュコマンド** リポジトリです。
 
 ダイジェストは **株式会社kiCk** のメンバー向けにチューニングされており、
 一般的な経済・国内外・テクノロジーに加えて、
@@ -11,142 +9,72 @@ PC を起動しておく必要はなく、すべて GitHub のクラウド上で
 - **kiCk クライアント／関連業界の動向**（adidas、PILOT、Schick、Calbee、TOTO、旭化成ホームズ ほか）
 - **経営レイヤーと話すときに役立つインサイト**（経営者発言・M&A・ガバナンス・戦略動向など）
 
-の 2 セクションを含みます。クライアント／業界リストは `prompts/news-digest.md`
-を直接編集すれば変更できます。
+の 2 セクションを含みます。
 
 ---
 
-## 1. 概要と仕組み
+## 仕組み
 
 ```
-┌──────────────────────┐   cron (21:00 UTC = 翌 06:00 JST)
-│ GitHub Actions       │ ─────────────────────────────────┐
-│ daily-news.yml       │                                  │
-└──────────┬───────────┘                                  │
-           │ 1) Claude Code (headless)                    │
-           │    prompts/news-digest.md を実行             │
-           │    WebSearch で当日ニュース収集・要約        │
-           │    digest.json を書き出し                    │
-           ▼                                              │
-     ┌───────────┐                                        │
-     │ digest.json│ { "description_html": "<HTML>" }      │
-     └─────┬─────┘                                        │
-           │ 2) Python                                    │
-           │    scripts/create_calendar_event.py          │
-           │    refresh_token → access_token              │
-           │    今日 7:00–7:30 JST の予定を作成           │
-           ▼                                              │
-   ┌────────────────────┐                                 │
-   │ Google Calendar    │ ☕ 今朝のニュースまとめ（M/D）  │
-   └────────────────────┘                                 │
+あなたが Claude Code で /morning-digest と入力
+        │
+        ▼
+.claude/commands/morning-digest.md の指示が読み込まれる
+        │
+        ├─ WebSearch / WebFetch で当日の主要ニュース 5 分野を収集・要約
+        │
+        ├─ HTML 形式で本文を組み立て
+        │
+        └─ Google Calendar MCP の create_event を呼んで
+           今日 7:00–7:30 JST の予定を作成
 ```
 
-- **トリガー**: `cron: "0 21 * * *"`（UTC = 翌 06:00 JST）と `workflow_dispatch`（手動実行）
-- **ニュース収集**: `claude -p ... --allowedTools "WebSearch,WebFetch,Write"`
-- **カレンダー登録**: Google Calendar API v3 `events.insert`（タイムゾーン `Asia/Tokyo`）
+GitHub Actions や Python スクリプト、OAuth 設定は **一切不要**。
+Claude Code に既に接続済みの Google Calendar MCP の認証をそのまま使います。
+
+クライアント／業界リストの編集は `.claude/commands/morning-digest.md` を直接編集してください。
 
 ---
 
-## 2. Google Cloud のセットアップ
+## 使い方
 
-1. **プロジェクト作成**: [Google Cloud Console](https://console.cloud.google.com/) で新規プロジェクトを作成（既存でも可）。
-2. **API 有効化**: 「API とサービス → ライブラリ」で **Google Calendar API** を有効化。
-3. **OAuth 同意画面の構成**:
-   - User Type: **External**（個人 Google アカウントの場合）
-   - スコープに `https://www.googleapis.com/auth/calendar.events` を追加
-   - テストユーザーに自分の Google アカウントを追加（公開ステータスが「テスト」のままで OK）
-4. **OAuth クライアント ID を作成**:
-   - 「認証情報 → 認証情報を作成 → OAuth クライアント ID」
-   - アプリケーションの種類: **デスクトップ アプリ**
-   - 作成後、JSON をダウンロードしてリポジトリ直下に **`client_secret.json`** という名前で保存
-   - （`.gitignore` 済みなので誤コミットの心配はありません）
+### A. 手動で毎朝走らせる
 
----
+1. このリポジトリを Claude Code（CLI / デスクトップ / web のいずれか）で開く
+2. Google Calendar MCP が接続されていることを確認（接続されていなければ初回だけ MCP を追加）
+3. プロンプト欄で `/morning-digest` と入力 → Enter
+4. 数十秒〜数分で Web 検索 → 本文組み立て → カレンダー登録まで自動実行
+5. 完了報告メッセージに作成した予定のリンクが表示される
 
-## 3. リフレッシュトークンの取得（ローカルで一度だけ）
+### B. Claude Code on the web で **スケジュール実行** する（PC 起動不要）
 
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-python scripts/get_refresh_token.py
-```
+Claude Code on the web の **Scheduled Trigger** を使うと、PC を起動していなくても毎朝自動で `/morning-digest` を走らせられます。
 
-ブラウザが開いて Google 認証画面が表示されます。テストユーザーとして
-登録した自分のアカウントで承認すると、ターミナルに次の 3 つの値が表示
-されます。控えておいてください。
+1. https://claude.ai/code でこのリポジトリを source として登録
+2. **Triggers** → **Add scheduled trigger**
+3. Cron 設定: `0 6 * * *`（毎朝 06:00 JST）など。タイムゾーンを Asia/Tokyo に
+4. 実行プロンプト: `/morning-digest`
+5. 保存
 
-- `GOOGLE_CLIENT_ID`
-- `GOOGLE_CLIENT_SECRET`
-- `GOOGLE_REFRESH_TOKEN`
+詳細仕様: https://code.claude.com/docs/en/claude-code-on-the-web
 
-> リフレッシュトークンが空で返ってきた場合は、
-> [Google アカウントのアクセス権限](https://myaccount.google.com/permissions)
-> から該当クライアントのアクセスを解除してから再実行してください。
+> Scheduled Trigger 実行時のセッションでも、あなたの Claude アカウントに紐付いた Google Calendar MCP の認証が使われます。
 
 ---
 
-## 4. GitHub の Secrets 登録
+## 編集ポイント
 
-リポジトリの **Settings → Secrets and variables → Actions → New repository secret** から
-以下を登録します。
+- **クライアント／業界**: `.claude/commands/morning-digest.md` の「kiCk の主要クライアントと所属業界」セクション
+- **取り上げる分野**: 同ファイルの「ニュース収集の指示」セクション
+- **HTML レイアウト**: 同ファイルの「予定の本文（description）の HTML 構成」セクション
+- **予定の時間帯・タイトル**: 同ファイルの「カレンダー予定の作成」セクション
 
-| Secret 名 | 内容 |
-| --- | --- |
-| `ANTHROPIC_API_KEY` | Anthropic Console で発行した API キー（**従量課金**） |
-| `GOOGLE_CLIENT_ID` | 手順 3 で取得 |
-| `GOOGLE_CLIENT_SECRET` | 手順 3 で取得 |
-| `GOOGLE_REFRESH_TOKEN` | 手順 3 で取得 |
-| `GOOGLE_CALENDAR_ID` | （任意）特定カレンダーに登録したい場合のみ。未設定なら `primary`（メインカレンダー）に登録 |
-
----
-
-## 5. push 手順
-
-```bash
-git add .
-git commit -m "Initial commit: morning news digest workflow"
-git push -u origin main
-```
-
-> `client_secret.json` と `digest.json` は `.gitignore` で除外済みです。
-
----
-
-## 6. 手動実行で動作確認
-
-1. GitHub の **Actions** タブを開く
-2. 左サイドバーから **Daily News Digest** ワークフローを選択
-3. 右側の **Run workflow** ボタン → ブランチを選んで実行
-4. 緑のチェックが付いたら、Google カレンダーの今日 7:00–7:30 に
-   「☕ 今朝のニュースまとめ（M/D）」が登録されていることを確認
-
-ジョブのログ末尾には作成された予定の `htmlLink` が出力されます。
-
----
-
-## 7. cron 時刻の調整
-
-`.github/workflows/daily-news.yml` の `cron` を編集します。
-
-- GitHub Actions の **cron は UTC** で指定します。
-- 既定値 `"0 21 * * *"` は **21:00 UTC = 翌 06:00 JST** 起動です。
-- 7:00 JST までに完了させるため、**1 時間ほど余裕**を持たせています。
-- 例: 5:30 JST に起動したい場合 → JST 5:30 = UTC 20:30 → `"30 20 * * *"`
+変更したら `git commit && git push` するだけで反映されます（GitHub Actions のような追加のデプロイ手順はなし）。
 
 ---
 
 ## 注意点
 
-- **GitHub Actions の定期実行は数分〜十数分の遅延**があります。確実に
-  7:00 JST までに登録したい場合は、cron をさらに前倒しにしてください。
-- **`WebSearch` ツールは米国（US）リージョンからのみ利用可能**です。
-  GitHub Actions の `ubuntu-latest` ランナーは通常 US 圏で稼働するため
-  問題なく動作します。セルフホストランナーを使う場合はリージョンに注意
-  してください。
-- **`ANTHROPIC_API_KEY` は従量課金**です。Claude.ai のサブスクリプションとは
-  別物で、API 呼び出しごとに課金されます。Anthropic Console の Usage で
-  使用量を確認してください。
-- リフレッシュトークンは OAuth 同意画面の公開ステータスが「テスト」の
-  場合 **7 日で失効**することがあります。長期運用する場合は同意画面を
-  「本番環境」に切り替えてください（個人利用範囲なら審査不要）。
+- **`WebSearch` ツールは米国（US）からのみ利用可能**です。Claude Code on the web のクラウド実行環境は通常 US 圏で稼働するため問題ありません。
+- スケジュール実行は **Claude.ai のサブスクリプション枠内** で動くため、追加の従量課金は発生しません。
+- Google Calendar MCP の認証が切れた場合は、Claude.ai の Settings → Integrations から再接続してください。
