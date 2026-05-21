@@ -96,7 +96,6 @@ def build_event(description_html: str) -> dict:
             "dateTime": end.strftime("%Y-%m-%dT%H:%M:%S"),
             "timeZone": "Asia/Tokyo",
         },
-        "colorId": "5",
     }
 
 
