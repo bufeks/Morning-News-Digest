@@ -1,6 +1,6 @@
 ---
 description: 今日の朝刊ニュースまとめを作成し、Google カレンダーに 7:00–7:30 JST の予定として登録する
-allowed-tools: WebSearch, WebFetch
+allowed-tools: WebSearch, WebFetch, mcp__*__create_event, mcp__*__list_calendars, mcp__*__list_events
 ---
 
 # 今朝のニュースまとめ → Google カレンダー登録
