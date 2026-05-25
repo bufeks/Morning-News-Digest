@@ -1,6 +1,6 @@
 ---
 description: 今日の朝刊ニュースまとめを作成し、Google カレンダーに 7:00–7:30 JST の予定として登録する
-allowed-tools: WebSearch, WebFetch, mcp__*__create_event, mcp__*__list_calendars, mcp__*__list_events
+allowed-tools: Bash(TZ=Asia/Tokyo date:*), WebSearch, WebFetch, mcp__*__create_event, mcp__*__list_calendars, mcp__*__list_events
 ---
 
 # 今朝のニュースまとめ → Google カレンダー登録
@@ -15,9 +15,37 @@ allowed-tools: WebSearch, WebFetch, mcp__*__create_event, mcp__*__list_calendars
 Trigger）に起動される想定です。ニュース収集はその場で実行し、**鮮度が最大の
 状態で 7:00–7:30 の予定を作成**します。
 
+0. **🚨 最重要**: 今日の Asia/Tokyo 日付を **必ず Bash で取得** する（下記「STEP 0」参照）
 1. `WebSearch`（必要に応じて `WebFetch`）で当日（Asia/Tokyo）の主要ニュースを 5 分野について収集・要約
 2. Google Calendar の **create_event 系 MCP ツール**（`mcp__*__create_event`）で、当日 7:00–7:30 JST の予定を作成
 3. 完了したら、作成した予定のリンクと簡単な内容サマリを 1 メッセージで報告
+
+## 🚨 STEP 0: 今日の JST 日付を確定する（最重要・最初に必ず実行）
+
+スケジュール実行は典型的に **06:30 JST = 21:30 UTC（前日）** に走ります。
+Claude のシステム時刻はほぼ確実に **UTC** であり、何も考えずに「current date」を使うと
+作成される予定が **1 日ズレる**（過去に実際に発生した不具合）。
+
+**必ず最初に次の Bash コマンドで今日の JST 日付を取得すること**:
+
+```bash
+TZ=Asia/Tokyo date '+%Y-%m-%d %H:%M %Z'
+```
+
+得られた `YYYY-MM-DD` を以後すべての箇所で「今日（JST）」として使用する:
+
+- ニュース検索クエリの日付（例: `"2026年5月25日"`）
+- 予定のタイトルの `M/D`
+- `create_event` の `startTime` / `endTime` の日付部分
+- 完了報告の本文
+
+**応答の最初に必ず**:
+
+```
+今日（Asia/Tokyo）= YYYY-MM-DD（曜日）
+```
+
+**と明示してから作業を開始すること。** これを怠ると過去のように日付がズレた予定が量産される。
 
 ## 読者の関心ポイント
 
@@ -94,17 +122,21 @@ HTML 属性値は **シングルクオート（`'`）推奨**。
 ## カレンダー予定の作成
 
 利用可能な MCP ツールの中から **Google Calendar の `create_event`** を探して呼び出してください
-（典型的には `mcp__<server_id>__create_event` という名前）。引数:
+（典型的には `mcp__<server_id>__create_event` という名前）。
+
+⚠️ **`M/D` と日付部分は STEP 0 で確定した JST 日付を使うこと。UTC のシステム日付を絶対に流用しない。**
+
+引数:
 
 - **カレンダー**: primary（メインカレンダー）
-- **タイトル**: `☕ 今朝のニュースまとめ（M/D）` — `M/D` は **Asia/Tokyo の今日の月日**
-- **開始**: 当日 07:00 JST (`Asia/Tokyo`)
-- **終了**: 当日 07:30 JST (`Asia/Tokyo`)
+- **タイトル**: `☕ 今朝のニュースまとめ（M/D）` — `M/D` は **STEP 0 で取得した Asia/Tokyo の今日の月日**
+- **開始 (startTime)**: `YYYY-MM-DDT07:00:00+09:00`（YYYY-MM-DD は STEP 0 で取得した JST 日付）
+- **終了 (endTime)**: `YYYY-MM-DDT07:30:00+09:00`（YYYY-MM-DD は STEP 0 で取得した JST 日付）
 - **タイムゾーン**: `Asia/Tokyo`
 - **本文 (description)**: 上で組み立てた HTML 文字列
 - **色 (colorId)**: 指定しない（カレンダーのデフォルト色のまま）
 
-タイムゾーンの取り違えに注意。**現在の日時を Asia/Tokyo に変換した上で**、その日付の 7:00–7:30 を予定にしてください。
+create_event を呼ぶ前に、引数の startTime/endTime/タイトルが STEP 0 で確定した JST 日付と一致しているかを最終確認すること。
 
 ## 完了報告
 
